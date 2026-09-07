@@ -17,11 +17,14 @@ Running this file directly still starts a line-based JSON loop on stdin,
 which is how the extraction paths get tested off-device.
 """
 
+import hashlib
+import io
 import json
 import os
 import re
 import sys
 import urllib.request
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 
 # Prefer a vendored yt-dlp so the app does not depend on the user running pip.
@@ -33,6 +36,14 @@ if os.path.isdir(_VENDOR):
     if os.path.isfile(_ZIPAPP):
         sys.path.insert(0, _ZIPAPP)
     sys.path.insert(0, _VENDOR)
+
+_UPDATE_DIR = os.path.join(
+    os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"),
+    "harbour-moira")
+_UPDATE_ZIP = os.path.join(_UPDATE_DIR, "yt-dlp.zip")
+if os.path.isfile(_UPDATE_ZIP):
+    # Inserted last, so it lands ahead of the bundled copy.
+    sys.path.insert(0, _UPDATE_ZIP)
 
 try:
     from yt_dlp import YoutubeDL
@@ -54,6 +65,9 @@ _USER_AGENT = "Mozilla/5.0"
 # deliberately broad seeds are merged and re-sorted by view count.
 _POPULAR_SP = "CAMSBAgDEAE%3D"  # sort=view count, uploaded=this week
 _POPULAR_SEEDS = ("a", "e", "i", "o", "the")
+
+_RELEASE_API = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
+_RELEASE_FILE = "https://github.com/yt-dlp/yt-dlp/releases/download/%s/%s"
 
 _NO_FORMAT_MESSAGE = (
     "no playable format returned - this usually means YouTube withheld "
@@ -378,6 +392,77 @@ def method_channel(params):
     }
 
 
+def _http_get(url, timeout=60):
+    request = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read()
+
+
+def _latest_release():
+    return json.loads(_http_get(_RELEASE_API).decode("utf-8")).get("tag_name") or ""
+
+
+def method_update_check(_params):
+    latest = _latest_release()
+    return {
+        "current": YTDLP_VERSION or "",
+        "latest": latest,
+        "updateAvailable": bool(latest and latest != YTDLP_VERSION),
+        "source": "downloaded" if os.path.isfile(_UPDATE_ZIP) else "bundled",
+    }
+
+
+def method_update_install(params):
+    """Download a newer yt-dlp into the app's data directory.
+
+    The package ships a working baseline, but YouTube breaks extraction on a
+    timescale of weeks while releases happen on a timescale of months. This
+    lets a user repair their own install, and keeps the dependency out of the
+    build - OBS workers have no network access, so Chum could not fetch it.
+
+    The payload is checked against the SHA2-256SUMS published with the same
+    release. Both come from GitHub over TLS, so this guards against truncated
+    or corrupted downloads rather than against GitHub itself; the release is
+    also signed, and verifying that would need a trusted key shipped with the
+    app.
+    """
+    version = (params.get("version") or "").strip() or _latest_release()
+    if not version:
+        raise RuntimeError("could not determine the latest yt-dlp release")
+
+    sums = _http_get(_RELEASE_FILE % (version, "SHA2-256SUMS")).decode("utf-8", "replace")
+    expected = ""
+    for line in sums.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[1] == "yt-dlp":
+            expected = parts[0].lower()
+            break
+    if not expected:
+        raise RuntimeError("release %s publishes no checksum for the zipapp" % version)
+
+    payload = _http_get(_RELEASE_FILE % (version, "yt-dlp"), timeout=180)
+    actual = hashlib.sha256(payload).hexdigest()
+    if actual != expected:
+        raise RuntimeError(
+            "checksum mismatch, refusing to install (expected %s..., got %s...)"
+            % (expected[:16], actual[:16]))
+    if not zipfile.is_zipfile(io.BytesIO(payload)):
+        raise RuntimeError("downloaded file is not a zipapp")
+
+    os.makedirs(_UPDATE_DIR, exist_ok=True)
+    partial = _UPDATE_ZIP + ".part"
+    with open(partial, "wb") as handle:
+        handle.write(payload)
+    os.replace(partial, _UPDATE_ZIP)  # Atomic: never leave a half-written zip.
+
+    return {
+        "installed": version,
+        "bytes": len(payload),
+        # The old interpreter still holds the previous module tree.
+        "restartRequired": True,
+    }
+
+
 def method_popular(params):
     limit = max(1, min(int(params.get("limit") or 20), 50))
     per_seed = max(4, limit // 2)
@@ -412,6 +497,8 @@ def method_popular(params):
 METHODS = {
     "ping": method_ping,
     "popular": method_popular,
+    "update_check": method_update_check,
+    "update_install": method_update_install,
     "search": method_search,
     "video": method_video,
     "stream": method_stream,

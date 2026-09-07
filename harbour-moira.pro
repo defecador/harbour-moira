@@ -1,5 +1,9 @@
 TARGET = harbour-moira
+VERSION = 0.1.0
 CONFIG += sailfishapp c++11
+
+# Exposed to QML as `appVersion` so the About page cannot drift.
+DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 
 # Extraction is Python under pyotherside and playback is driven from QML,
 # so the C++ side is just the launcher.
@@ -10,6 +14,7 @@ DISTFILES += \
     qml/cover/CoverPage.qml \
     qml/pages/SearchPage.qml \
     qml/pages/VideoPage.qml \
+    qml/pages/AboutPage.qml \
     qml/components/Extractor.qml \
     qml/components/StreamThumbnail.qml \
     rpm/harbour-moira.spec

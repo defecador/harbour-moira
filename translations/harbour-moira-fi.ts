@@ -2,6 +2,61 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="fi">
 <context>
+    <name>AboutPage</name>
+    <message>
+        <source>Downloading and verifying…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Installed %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>About Moira</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Watch and listen without an account, ads or tracking.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extractor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>unknown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Latest available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>YouTube changes often enough to break extraction between releases. Updating replaces the bundled extractor with the latest published one, after checking it against its SHA-256 checksum.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Update extractor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reinstall extractor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Check again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Restart Moira to use the new extractor.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>Extractor</name>
     <message>
         <source>No reply from the extractor</source>
@@ -44,6 +99,10 @@
     </message>
     <message>
         <source>Pull down to refresh</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>About &amp; updates</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

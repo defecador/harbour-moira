@@ -71,6 +71,10 @@ Page {
 
         PullDownMenu {
             MenuItem {
+                text: qsTr("About & updates")
+                onClicked: pageStack.push(Qt.resolvedUrl("AboutPage.qml"))
+            }
+            MenuItem {
                 text: qsTr("Popular this week")
                 onClicked: page.loadPopular()
             }

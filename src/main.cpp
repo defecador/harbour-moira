@@ -1,6 +1,7 @@
 #include <QtQuick>
 #include <QGuiApplication>
 #include <QQuickView>
+#include <QQmlContext>
 #include <sailfishapp.h>
 
 /*
@@ -15,6 +16,8 @@ int main(int argc, char *argv[])
     app->setApplicationName(QStringLiteral("harbour-moira"));
 
     QScopedPointer<QQuickView> view(SailfishApp::createView());
+    view->rootContext()->setContextProperty(
+        QStringLiteral("appVersion"), QStringLiteral(APP_VERSION));
     view->setSource(SailfishApp::pathToMainQml());
     view->show();
 

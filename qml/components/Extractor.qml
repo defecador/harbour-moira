@@ -59,6 +59,14 @@ QtObject {
         _call('video', { "url": url }, callback)
     }
 
+    function updateCheck(callback) {
+        _call('update_check', {}, callback)
+    }
+
+    function updateInstall(callback) {
+        _call('update_install', {}, callback)
+    }
+
     function ping(callback) {
         _call('ping', {}, callback)
     }
