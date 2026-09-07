@@ -1,0 +1,20 @@
+# Build output
+RPMS/
+build/
+*.o
+moc_*
+qrc_*
+ui_*
+Makefile
+.qmake.stash
+harbour-moira
+
+# Generated translations
+translations/*.qm
+translations/harbour-moira.ts
+
+# Vendored dependency, fetched by tools/vendor-ytdlp.sh
+python/vendor/yt-dlp.zip
+python/**/__pycache__/
+documentation.list
+.sfdk/

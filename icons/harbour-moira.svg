@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 172" width="172" height="172">
+  <!--
+    Moira: a nautical pennant carrying the civil flag of Galicia.
+
+    The pennant tapers to the right so the silhouette also reads as a play
+    symbol. Band angle and width follow the flag itself (a #09c stroke run
+    corner to corner across the field, 106 units wide on a 400-unit height):
+    here the band runs the bounding box diagonal at 26/128 of the height.
+
+    The hairline edge is the one deliberate departure from the flag. Sailfish
+    icons sit on the user's ambience, and an unoutlined white field disappears
+    against a light one - only the band would remain visible.
+  -->
+  <defs>
+    <clipPath id="pennant">
+      <path d="M16 22 L158 86 L16 150 Z"/>
+    </clipPath>
+  </defs>
+
+  <path d="M16 22 L158 86 L16 150 Z" fill="#ffffff"/>
+
+  <g clip-path="url(#pennant)">
+    <path stroke="#09c" stroke-width="26" d="M16 22 L158 150"/>
+  </g>
+
+  <path d="M16 22 L158 86 L16 150 Z" fill="none" stroke="#0a7fa8"
+        stroke-width="4" stroke-linejoin="round"/>
+</svg>

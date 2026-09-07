@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+X-Nemo-Application-Type=silica-qt5
+Icon=harbour-moira
+Exec=harbour-moira
+Name=Moira
+Comment=Privacy-friendly video streaming
+
+[X-Sailjail]
+Permissions=Internet;Audio;Videos;Downloads;WebView
+OrganizationName=org.moira
+ApplicationName=harbour-moira
