@@ -3,7 +3,7 @@ Summary:    Privacy-friendly video streaming client
 Version:    0.1.0
 Release:    1
 License:    GPLv3
-URL:        https://github.com/guillermo/moira
+URL:        https://github.com/defecador/harbour-moira
 Source0:    %{name}-%{version}.tar.bz2
 
 Requires:   sailfishsilica-qt5 >= 0.10.9
@@ -22,6 +22,21 @@ BuildRequires:  desktop-file-utils
 Moira is a native Sailfish OS client for streaming video and audio without
 accounts, ads or tracking. Extraction is handled by a bundled yt-dlp based
 service; the interface is native Qt Quick / Silica.
+
+%if 0%{?_chum}
+Title: Moira
+Type: desktop-application
+DeveloperName: Guillermo Torres Belando
+Categories:
+ - Video
+ - Network
+Custom:
+  Repo: https://github.com/defecador/harbour-moira
+PackageIcon: https://github.com/defecador/harbour-moira/raw/main/icons/harbour-moira.svg
+Links:
+  Homepage: https://github.com/defecador/harbour-moira
+  Bugtracker: https://github.com/defecador/harbour-moira/issues
+%endif
 
 %prep
 %setup -q -n %{name}-%{version}

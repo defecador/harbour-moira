@@ -101,4 +101,4 @@ dependencies and the nature of the app both rule out Jolla's store.
 
 ## Licence
 
-GPLv3, matching NewPipe. The name and icon are deliberately not NewPipe's.
+GPLv3 - see LICENSE. The name and icon are deliberately not NewPipe's.
