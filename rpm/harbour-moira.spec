@@ -33,6 +33,10 @@ Categories:
 Custom:
   Repo: https://github.com/defecador/harbour-moira
 PackageIcon: https://github.com/defecador/harbour-moira/raw/main/icons/harbour-moira.svg
+Screenshots:
+ - https://github.com/defecador/harbour-moira/raw/main/screenshots/01-popular.png
+ - https://github.com/defecador/harbour-moira/raw/main/screenshots/02-player.png
+ - https://github.com/defecador/harbour-moira/raw/main/screenshots/03-quality.png
 Links:
   Homepage: https://github.com/defecador/harbour-moira
   Bugtracker: https://github.com/defecador/harbour-moira/issues
