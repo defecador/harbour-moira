@@ -75,9 +75,16 @@ group and dropping one silences the stream; and the local file is *not* named
 `.m3u8`, because Qt would parse that as one of its own playlist formats
 instead of handing it to GStreamer.
 
-The same filter prefers `avc1` over `vp09` wherever both are offered, keeping
-playback on the hardware decoder. vp09 survives only at 1440p and 2160p, where
-YouTube offers nothing else.
+The unfiltered master is never served, even in adaptive mode. Whenever avc1
+exists the filter serves nothing else, because vp09 at 1440p and 2160p fails
+on this hardware roughly half a second into playback - `droidvdec` does
+advertise `video/x-vp9`, so the limit is high-resolution vp09 rather than the
+codec. Those heights are therefore also absent from the quality menu, which
+lists only what the device can decode.
+
+Manifest filenames are hashed per URL and cap. QMediaPlayer ignores an
+assignment of an unchanged `source`, so a fixed filename silently breaks the
+second video played.
 
 Audio mode deliberately stays on a plain progressive URL (format 140, m4a
 ~129 kbps): one stream needs no muxing, and avoiding HLS keeps background

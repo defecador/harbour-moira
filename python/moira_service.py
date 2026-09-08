@@ -102,6 +102,21 @@ def _variant_heights(body):
     return sorted({int(m) for m in re.findall(r"RESOLUTION=\d+x(\d+)", body)})
 
 
+def _playable_heights(body):
+    """Heights the device can actually decode - what the UI may offer.
+
+    Anything vp09-only is excluded, so the quality menu never lists a
+    resolution that fails on selection.
+    """
+    avc = sorted({
+        int(re.search(r"RESOLUTION=\d+x(\d+)", line).group(1))
+        for line in body.splitlines()
+        if line.startswith("#EXT-X-STREAM-INF") and "avc1" in line
+        and re.search(r"RESOLUTION=\d+x(\d+)", line)
+    })
+    return avc or _variant_heights(body)
+
+
 def _filter_master(body, max_height):
     """Drop variants above max_height, keeping every EXT-X-MEDIA rendition.
 
@@ -114,9 +129,11 @@ def _filter_master(body, max_height):
     """
     lines = body.splitlines()
 
-    # YouTube offers both avc1 and vp09 at most heights. Only avc1 is certain
-    # to hit the hardware decoder here, so vp09 is kept solely at heights
-    # where nothing else is offered - which is how 1440p and 2160p survive.
+    # YouTube offers avc1 and vp09 at most heights, and only vp09 above 1080p.
+    # Measured on a MediaTek Jolla Phone: avc1 plays, vp09 at 1440p and 2160p
+    # fails about half a second in. droidvdec does advertise video/x-vp9, so
+    # this is a limit on high-resolution vp09 rather than the codec itself.
+    # Whenever avc1 exists at all, it is the only thing served.
     avc_heights = set()
     for line in lines:
         if line.startswith("#EXT-X-STREAM-INF") and "avc1" in line:
@@ -133,7 +150,7 @@ def _filter_master(body, max_height):
             uri = lines[index + 1] if index + 1 < len(lines) else ""
             found = re.search(r"RESOLUTION=\d+x(\d+)", line)
             height = int(found.group(1)) if found else 0
-            redundant = "avc1" not in line and height in avc_heights
+            redundant = "avc1" not in line and bool(avc_heights)
             if height <= max_height and not redundant:
                 out.extend((line, uri))
                 kept.append(height)
@@ -145,27 +162,52 @@ def _filter_master(body, max_height):
 
 
 def _capped_manifest(master_url, max_height):
-    """Return a local manifest capped to max_height, or None to use the master.
+    """Write a filtered local manifest and return its path.
 
     The file deliberately avoids an .m3u8 suffix: Qt would recognise that as
     one of its own playlist formats and parse it instead of handing it to
     GStreamer, which typefinds on the #EXTM3U content regardless.
     """
     body = _fetch_master(master_url)
-    heights = _variant_heights(body)
+    heights = _playable_heights(body)
     if not heights:
         return None, []
-    if not max_height or max_height >= heights[-1]:
-        return None, heights
 
-    filtered, kept = _filter_master(body, max_height)
+    # The unfiltered master is never served: left to itself adaptivedemux
+    # climbs by bandwidth into the vp09 variants, which fail on this hardware
+    # a moment after playback starts.
+    ceiling = max_height or heights[-1]
+    filtered, kept = _filter_master(body, ceiling)
     if not kept:
-        # Requested cap is below every variant; keep just the smallest.
+        # Nothing matched - fall back to the smallest variant of any codec.
         filtered, kept = _filter_master(body, heights[0])
-    path = os.path.join(_cache_dir(), "manifest.hls")
+
+    # The filename must vary per stream. QMediaPlayer treats assigning an
+    # unchanged source as a no-op, so a fixed path would leave the previous
+    # video playing - or fail - on the next capped request.
+    token = hashlib.sha1(
+        ("%s|%d" % (master_url, max_height)).encode("utf-8")).hexdigest()[:12]
+    path = os.path.join(_cache_dir(), "manifest-%s.hls" % token)
     with open(path, "w") as handle:
         handle.write(filtered)
+    _prune_manifests(keep=path)
     return path, heights
+
+
+def _prune_manifests(keep, limit=4):
+    """Drop stale manifests; their signed URLs expire within hours anyway."""
+    try:
+        directory = _cache_dir()
+        entries = [
+            os.path.join(directory, n) for n in os.listdir(directory)
+            if n.startswith("manifest-") and n.endswith(".hls")
+        ]
+        entries = [e for e in entries if e != keep]
+        entries.sort(key=os.path.getmtime, reverse=True)
+        for stale in entries[limit:]:
+            os.unlink(stale)
+    except OSError:
+        pass  # Housekeeping only; never fail a playback over it.
 
 
 def _pick_thumbnail(entry):
@@ -328,7 +370,7 @@ def method_stream(params):
             "url": url,
             "mode": "video",
             "adaptive": True,
-            "format_id": "hls-capped" if url != manifest else "hls-master",
+            "format_id": "hls-adaptive" if max_height == 0 else "hls-capped",
             "ext": "m3u8",
             # 0 means the demuxer still chooses freely below the cap.
             "height": 0,
