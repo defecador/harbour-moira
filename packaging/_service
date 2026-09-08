@@ -1,0 +1,7 @@
+<services>
+    <service name="tar_git">
+    <param name="url">https://github.com/defecador/harbour-moira.git</param>
+    <param name="branch">main</param>
+    <param name="revision">v0.1.0</param>
+    </service>
+</services>

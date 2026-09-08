@@ -275,7 +275,9 @@ def method_ping(_params):
     return {
         "ytdlp": YTDLP_VERSION,
         "python": sys.version.split()[0],
-        "vendored": os.path.isdir(_VENDOR),
+        # False means nothing can be extracted until an update is fetched.
+        "available": YoutubeDL is not None,
+        "vendored": os.path.isfile(_ZIPAPP) if os.path.isdir(_VENDOR) else False,
     }
 
 
@@ -497,11 +499,30 @@ def method_update_install(params):
         handle.write(payload)
     os.replace(partial, _UPDATE_ZIP)  # Atomic: never leave a half-written zip.
 
+    # If nothing was importable before - a package built without the vendored
+    # zipapp, as OBS must produce - the interpreter holds no stale module tree
+    # and the download can be used immediately. Only a genuine upgrade needs a
+    # restart, because Python cannot unload the yt_dlp already in memory.
+    global YoutubeDL, YTDLP_VERSION, _IMPORT_ERROR
+    restart_required = True
+    if YoutubeDL is None:
+        if _UPDATE_ZIP not in sys.path:
+            sys.path.insert(0, _UPDATE_ZIP)
+        try:
+            from yt_dlp import YoutubeDL as _YoutubeDL
+            from yt_dlp.version import __version__ as _version
+        except ImportError as exc:
+            _IMPORT_ERROR = str(exc)
+        else:
+            YoutubeDL = _YoutubeDL
+            YTDLP_VERSION = _version
+            _IMPORT_ERROR = None
+            restart_required = False
+
     return {
         "installed": version,
         "bytes": len(payload),
-        # The old interpreter still holds the previous module tree.
-        "restartRequired": True,
+        "restartRequired": restart_required,
     }
 
 
@@ -536,6 +557,11 @@ def method_popular(params):
     return {"items": items[:limit]}
 
 
+# These must stay reachable when yt-dlp is missing: they are how it arrives.
+# A package built on OBS ships without the vendored zipapp, so the very first
+# call on a fresh install is update_install.
+_NEEDS_NO_EXTRACTOR = frozenset(("ping", "update_check", "update_install"))
+
 METHODS = {
     "ping": method_ping,
     "popular": method_popular,
@@ -559,7 +585,7 @@ def call(method, params=None):
         handler = METHODS.get(method)
         if handler is None:
             raise ValueError("unknown method '%s'" % method)
-        if YoutubeDL is None and method != "ping":
+        if YoutubeDL is None and method not in _NEEDS_NO_EXTRACTOR:
             raise RuntimeError("yt-dlp is not available: %s" % _IMPORT_ERROR)
         return {"ok": True, "result": handler(params or {})}
     except Exception as exc:

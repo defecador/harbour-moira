@@ -22,6 +22,10 @@ QtObject {
     id: root
 
     property bool ready: false
+
+    // False when yt-dlp is missing entirely - the state a package built on
+    // OBS installs in, since the build has no network to vendor it.
+    property bool available: false
     property string error: ""
 
     property var _py: Python {
@@ -30,6 +34,7 @@ QtObject {
             addImportPath(Qt.resolvedUrl('../../python').toString().replace('file://', ''))
             importModule('moira_service', function () {
                 root.ready = true
+                root.refreshAvailability()
             })
         }
         onError: root.error = traceback
@@ -65,6 +70,17 @@ QtObject {
 
     function updateInstall(callback) {
         _call('update_install', {}, callback)
+    }
+
+    function refreshAvailability(callback) {
+        ping(function (reply) {
+            if (reply.ok) {
+                root.available = reply.result.available
+            }
+            if (callback) {
+                callback(reply)
+            }
+        })
     }
 
     function ping(callback) {

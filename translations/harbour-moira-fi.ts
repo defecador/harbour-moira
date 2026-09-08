@@ -105,6 +105,18 @@
         <source>About &amp; updates</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Extractor needed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Moira needs yt-dlp before it can search or play anything. About 3 MB, checked against the checksum published with it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download extractor</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>VideoPage</name>
