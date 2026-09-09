@@ -16,6 +16,7 @@ DISTFILES += \
     qml/pages/VideoPage.qml \
     qml/pages/AboutPage.qml \
     qml/components/Extractor.qml \
+    qml/components/KeepDisplayOn.qml \
     qml/components/StreamThumbnail.qml \
     rpm/harbour-moira.spec
 

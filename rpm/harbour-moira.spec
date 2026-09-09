@@ -11,6 +11,7 @@ Requires:   qt5-qtdeclarative-import-multimedia
 Requires:   pyotherside-qml-plugin-python3-qt5
 Requires:   python3-base >= 3.11
 Requires:   gstreamer1.0-plugins-good
+Requires:   libkeepalive
 
 BuildRequires:  pkgconfig(sailfishapp) >= 1.0.2
 BuildRequires:  pkgconfig(Qt5Core)

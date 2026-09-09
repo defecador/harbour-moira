@@ -67,6 +67,21 @@ Page {
     onAudioOnlyChanged: resolveStream()
     Component.onDestruction: player.stop()
 
+    // Video playing, not paused, not audio-only: the only case where the
+    // display must stay awake. Audio-only deliberately lets it blank.
+    readonly property bool videoPlaying: !audioOnly
+        && player.playbackState === MediaPlayer.PlayingState
+
+    Loader {
+        active: page.videoPlaying
+        source: Qt.resolvedUrl("../components/KeepDisplayOn.qml")
+        onStatusChanged: {
+            if (status === Loader.Error) {
+                console.warn("moira: Nemo.KeepAlive unavailable, display may blank")
+            }
+        }
+    }
+
     MediaPlayer {
         id: player
         autoLoad: true
@@ -114,7 +129,9 @@ Page {
 
             Item {
                 width: parent.width
-                height: width * 9 / 16
+                // 16:9 from the width overflows the screen in landscape, so
+                // clamp it and leave room for the scrubber below.
+                height: Math.min(width * 9 / 16, page.height * 0.82)
 
                 Image {
                     anchors.fill: parent
