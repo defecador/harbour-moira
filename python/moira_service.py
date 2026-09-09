@@ -117,12 +117,18 @@ def _playable_heights(body):
     return avc or _variant_heights(body)
 
 
-def _filter_master(body, max_height):
-    """Drop variants above max_height, keeping every EXT-X-MEDIA rendition.
+def _filter_master(body, max_height, exact=False):
+    """Rewrite the master playlist down to the variants we want served.
 
     Quality has to be constrained here because GStreamer's adaptivedemux picks
     a variant by bandwidth on its own, and QtMultimedia 5.6 exposes no way to
     reach in and cap it. Rewriting the master is the only lever available.
+
+    `exact` is what makes a chosen quality mean that quality. Left adaptive,
+    the demuxer is handed every variant from 144p up, starts on the lowest one
+    listed and climbs only as fast as it measures bandwidth - so picking
+    "1080p" produced a 240p picture under a 1080p label. An explicit choice
+    therefore serves one height and nothing else.
 
     Renditions are always preserved: variants reference them by AUDIO group,
     and dropping one would silence the stream.
@@ -151,7 +157,8 @@ def _filter_master(body, max_height):
             found = re.search(r"RESOLUTION=\d+x(\d+)", line)
             height = int(found.group(1)) if found else 0
             redundant = "avc1" not in line and bool(avc_heights)
-            if height <= max_height and not redundant:
+            wanted = (height == max_height) if exact else (height <= max_height)
+            if wanted and not redundant:
                 out.extend((line, uri))
                 kept.append(height)
             index += 2
@@ -177,7 +184,11 @@ def _capped_manifest(master_url, max_height):
     # climbs by bandwidth into the vp09 variants, which fail on this hardware
     # a moment after playback starts.
     ceiling = max_height or heights[-1]
-    filtered, kept = _filter_master(body, ceiling)
+    filtered, kept = _filter_master(body, ceiling, exact=max_height > 0)
+    if not kept and max_height > 0:
+        # That exact height is not on offer; take everything up to it so the
+        # viewer still gets the closest thing rather than nothing.
+        filtered, kept = _filter_master(body, ceiling)
     if not kept:
         # Nothing matched - fall back to the smallest variant of any codec.
         filtered, kept = _filter_master(body, heights[0])
