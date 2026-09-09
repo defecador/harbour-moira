@@ -117,7 +117,22 @@ def _playable_heights(body):
     return avc or _variant_heights(body)
 
 
-def _filter_master(body, max_height, exact=False):
+def _original_audio_language(info):
+    """The language the video was actually made in, per yt-dlp.
+
+    YouTube auto-dubs a lot of popular content into 20+ languages. yt-dlp
+    scores the original track language_preference 10 and every dub -1, which
+    is more reliable than reading the "- dubbed" suffix out of a track name.
+    """
+    for fmt in info.get("formats") or []:
+        if (fmt.get("language_preference") == 10
+                and fmt.get("vcodec") in (None, "none")
+                and fmt.get("language")):
+            return fmt["language"]
+    return None
+
+
+def _filter_master(body, max_height, exact=False, audio_language=None):
     """Rewrite the master playlist down to the variants we want served.
 
     Quality has to be constrained here because GStreamer's adaptivedemux picks
@@ -130,8 +145,11 @@ def _filter_master(body, max_height, exact=False):
     "1080p" produced a 240p picture under a 1080p label. An explicit choice
     therefore serves one height and nothing else.
 
-    Renditions are always preserved: variants reference them by AUDIO group,
-    and dropping one would silence the stream.
+    Variants reference audio by group, so at least one rendition per group
+    must survive or the stream is silenced. `audio_language` narrows each
+    group to the original-language track: YouTube lists every dub with
+    DEFAULT=NO and puts the original last, so a player with nothing to go on
+    picks whichever dub comes first.
     """
     lines = body.splitlines()
 
@@ -152,6 +170,19 @@ def _filter_master(body, max_height, exact=False):
     index = 0
     while index < len(lines):
         line = lines[index]
+        if line.startswith("#EXT-X-MEDIA") and "TYPE=AUDIO" in line:
+            found = re.search(r'LANGUAGE="([^"]*)"', line)
+            language = found.group(1) if found else ""
+            if audio_language and language and language != audio_language:
+                index += 1
+                continue  # a dub - drop it
+            if audio_language and language == audio_language:
+                # Nothing else is left in the group, so say so explicitly.
+                line = line.replace("DEFAULT=NO", "DEFAULT=YES")
+                line = line.replace("AUTOSELECT=NO", "AUTOSELECT=YES")
+            out.append(line)
+            index += 1
+            continue
         if line.startswith("#EXT-X-STREAM-INF"):
             uri = lines[index + 1] if index + 1 < len(lines) else ""
             found = re.search(r"RESOLUTION=\d+x(\d+)", line)
@@ -168,7 +199,7 @@ def _filter_master(body, max_height, exact=False):
     return "\n".join(out) + "\n", kept
 
 
-def _capped_manifest(master_url, max_height):
+def _capped_manifest(master_url, max_height, audio_language=None):
     """Write a filtered local manifest and return its path.
 
     The file deliberately avoids an .m3u8 suffix: Qt would recognise that as
@@ -184,20 +215,24 @@ def _capped_manifest(master_url, max_height):
     # climbs by bandwidth into the vp09 variants, which fail on this hardware
     # a moment after playback starts.
     ceiling = max_height or heights[-1]
-    filtered, kept = _filter_master(body, ceiling, exact=max_height > 0)
+    filtered, kept = _filter_master(body, ceiling, exact=max_height > 0,
+                                    audio_language=audio_language)
     if not kept and max_height > 0:
         # That exact height is not on offer; take everything up to it so the
         # viewer still gets the closest thing rather than nothing.
-        filtered, kept = _filter_master(body, ceiling)
+        filtered, kept = _filter_master(body, ceiling,
+                                        audio_language=audio_language)
     if not kept:
         # Nothing matched - fall back to the smallest variant of any codec.
-        filtered, kept = _filter_master(body, heights[0])
+        filtered, kept = _filter_master(body, heights[0],
+                                        audio_language=audio_language)
 
     # The filename must vary per stream. QMediaPlayer treats assigning an
     # unchanged source as a no-op, so a fixed path would leave the previous
     # video playing - or fail - on the next capped request.
     token = hashlib.sha1(
-        ("%s|%d" % (master_url, max_height)).encode("utf-8")).hexdigest()[:12]
+        ("%s|%d|%s" % (master_url, max_height, audio_language or "")
+         ).encode("utf-8")).hexdigest()[:12]
     path = os.path.join(_cache_dir(), "manifest-%s.hls" % token)
     with open(path, "w") as handle:
         handle.write(filtered)
@@ -373,7 +408,8 @@ def method_stream(params):
         max_height = int(params.get("max_height") or 0)
         url, heights = manifest, []
         try:
-            capped, heights = _capped_manifest(manifest, max_height)
+            capped, heights = _capped_manifest(
+                manifest, max_height, _original_audio_language(info))
             if capped:
                 url = "file://" + capped
         except Exception:
